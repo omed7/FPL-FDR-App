@@ -8,7 +8,11 @@ struct SettingsView: View {
         NavigationView {
             Form {
                 Section(header: Text("Sort & Filter")) {
-                    Toggle("Sort by Easiest Fixtures", isOn: $manager.sortByEase)
+                    Picker("Sort Order", selection: $manager.sortOption) {
+                        Text("Team ID").tag(SortOption.id)
+                        Text("Easiest Fixtures").tag(SortOption.easiest)
+                        Text("Hardest Fixtures").tag(SortOption.hardest)
+                    }
 
                     Stepper("Start GW: \(manager.startGameweek)", value: $manager.startGameweek, in: 1...manager.endGameweek)
                     Stepper("End GW: \(manager.endGameweek)", value: $manager.endGameweek, in: manager.startGameweek...38)
@@ -21,7 +25,7 @@ struct SettingsView: View {
                             Button(action: {
                                 manager.toggleVisibility(teamId: team.id)
                             }) {
-                                TeamLogoView(teamShortName: team.short_name)
+                                TeamLogoView(teamCode: team.code, teamShortName: team.short_name)
                                     .opacity(manager.hiddenTeams.contains(team.id) ? 0.3 : 1.0)
                                     .overlay(
                                         manager.hiddenTeams.contains(team.id) ? Image(systemName: "eye.slash.fill").foregroundColor(.white) : nil
@@ -59,7 +63,7 @@ struct TeamStrengthEditor: View {
             ForEach(manager.teams) { team in
                 VStack(alignment: .leading) {
                     HStack {
-                        TeamLogoView(teamShortName: team.short_name)
+                        TeamLogoView(teamCode: team.code, teamShortName: team.short_name)
                         Text(team.name).font(.headline)
                     }
 
@@ -108,17 +112,32 @@ struct StrengthPicker: View {
 }
 
 struct TeamLogoView: View {
+    let teamCode: Int
     let teamShortName: String
 
     var body: some View {
-        // Since we don't have assets, use a text fallback
-        ZStack {
-            Circle()
-                .fill(Color(white: 0.2))
-            Text(teamShortName)
-                .font(.caption2.bold())
-                .foregroundColor(.white)
+        AsyncImage(url: URL(string: "https://resources.premierleague.com/premierleague/badges/50/t\(teamCode).png")) { phase in
+            switch phase {
+            case .empty:
+                ProgressView()
+                    .frame(width: 30, height: 30)
+            case .success(let image):
+                image
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 30, height: 30)
+            case .failure:
+                ZStack {
+                    Circle()
+                        .fill(Color(white: 0.2))
+                    Text(teamShortName)
+                        .font(.caption2.bold())
+                        .foregroundColor(.white)
+                }
+                .frame(width: 30, height: 30)
+            @unknown default:
+                EmptyView()
+            }
         }
-        .frame(width: 30, height: 30)
     }
 }
