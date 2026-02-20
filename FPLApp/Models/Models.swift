@@ -40,6 +40,7 @@ struct FixtureDisplay: Identifiable {
     let fixtureId: Int
     let opponentId: Int
     let opponentShortName: String
+    let opponentCode: Int
     let difficulty: Int
     let isHome: Bool
     let date: Date?

@@ -18,13 +18,14 @@ struct SettingsView: View {
                     // Visual Grid of logos
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))]) {
                         ForEach(manager.teams) { team in
+                            let isVisible = manager.teamVisibility[team.id] ?? true
                             Button(action: {
                                 manager.toggleVisibility(teamId: team.id)
                             }) {
-                                TeamLogoView(teamShortName: team.short_name)
-                                    .opacity(manager.hiddenTeams.contains(team.id) ? 0.3 : 1.0)
+                                TeamLogoView(team: team)
+                                    .opacity(isVisible ? 1.0 : 0.3)
                                     .overlay(
-                                        manager.hiddenTeams.contains(team.id) ? Image(systemName: "eye.slash.fill").foregroundColor(.white) : nil
+                                        !isVisible ? Image(systemName: "eye.slash.fill").foregroundColor(.white) : nil
                                     )
                             }
                         }
@@ -59,7 +60,7 @@ struct TeamStrengthEditor: View {
             ForEach(manager.teams) { team in
                 VStack(alignment: .leading) {
                     HStack {
-                        TeamLogoView(teamShortName: team.short_name)
+                        TeamLogoView(team: team)
                         Text(team.name).font(.headline)
                     }
 
@@ -104,21 +105,5 @@ struct StrengthPicker: View {
                 .foregroundColor(Theme.textColor(for: Theme.color(for: value)))
                 .cornerRadius(5)
         }
-    }
-}
-
-struct TeamLogoView: View {
-    let teamShortName: String
-
-    var body: some View {
-        // Since we don't have assets, use a text fallback
-        ZStack {
-            Circle()
-                .fill(Color(white: 0.2))
-            Text(teamShortName)
-                .font(.caption2.bold())
-                .foregroundColor(.white)
-        }
-        .frame(width: 30, height: 30)
     }
 }

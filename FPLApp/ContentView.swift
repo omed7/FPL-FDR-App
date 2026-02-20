@@ -47,83 +47,68 @@ struct ContentView: View {
 
 struct MainGridView: View {
     @ObservedObject var manager: FPLManager
+    @StateObject private var scrollManager = ScrollSyncManager()
+    @State private var selectedFixture: FixtureDisplay?
 
     var body: some View {
-        let teams = manager.getSortedTeams()
         let gameweeks = Array(manager.startGameweek...manager.endGameweek)
 
         ScrollView(.vertical, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 0) {
-                // Sticky Left Column
-                VStack(spacing: 0) {
-                    // Header
-                    Text("Team")
-                        .font(.caption.bold())
-                        .frame(width: 80, height: 40)
-                        .background(.ultraThinMaterial)
-                        .border(Color.white.opacity(0.1))
-
-                    // Team Rows
-                    ForEach(teams) { team in
-                        let height = rowHeight(for: team, gameweeks: gameweeks)
-                        TeamLeftCellView(team: team, fdr: manager.calculateAverageFDR(for: team.id))
-                            .frame(width: 80, height: height)
-                            .background(.ultraThinMaterial)
-                            .border(Color.white.opacity(0.1))
-                    }
-                }
-                .zIndex(1) // Keep on top if overlap
-
-                // Scrollable Right Grid
-                ScrollView(.horizontal, showsIndicators: true) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        // Header Row
-                        HStack(spacing: 0) {
-                            ForEach(gameweeks, id: \.self) { gw in
-                                Text("GW\(gw)")
-                                    .font(.caption.bold())
-                                    .frame(width: 60, height: 40)
-                                    .background(Color(white: 0.1))
-                                    .border(Color.white.opacity(0.1))
-                            }
-                        }
-
-                        // Data Rows
-                        ForEach(teams) { team in
-                            let height = rowHeight(for: team, gameweeks: gameweeks)
-                            HStack(spacing: 0) {
-                                ForEach(gameweeks, id: \.self) { gw in
-                                    let fixtures = manager.getFixtures(for: team.id, gameweek: gw)
-                                    Group {
-                                        if fixtures.isEmpty {
-                                            BlankGameweekCell()
-                                        } else {
-                                            VStack(spacing: 2) {
-                                                ForEach(fixtures) { fixture in
-                                                    FixtureCellView(fixture: fixture)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    .frame(width: 60, height: height)
-                                    .border(Color.white.opacity(0.1))
-                                }
-                            }
-                            .frame(height: height)
-                        }
-                    }
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section(header: SyncedHeaderView(gameweeks: gameweeks, scrollManager: scrollManager)) {
+                    SyncedGridBodyView(rows: manager.gridRows, scrollManager: scrollManager, selectedFixture: $selectedFixture)
                 }
             }
         }
-    }
-
-    func rowHeight(for team: Team, gameweeks: [Int]) -> CGFloat {
-        var maxFixtures = 1
-        for gw in gameweeks {
-            let count = manager.getFixtures(for: team.id, gameweek: gw).count
-            if count > maxFixtures { maxFixtures = count }
+        .edgesIgnoringSafeArea(.bottom)
+        .refreshable {
+            await manager.fetchData()
         }
-        // Base height 40 per fixture + spacing
-        return CGFloat(maxFixtures * 40 + (maxFixtures - 1) * 2)
+        .sheet(item: $selectedFixture) { fixture in
+            FixtureDetailView(fixture: fixture)
+        }
+    }
+}
+
+struct FixtureDetailView: View {
+    let fixture: FixtureDisplay
+
+    var body: some View {
+        VStack(spacing: 20) {
+            AsyncImage(url: URL(string: "https://resources.premierleague.com/premierleague/badges/50/t\(fixture.opponentCode).png")) { phase in
+                if let image = phase.image {
+                    image
+                        .resizable()
+                        .scaledToFit()
+                } else if phase.error != nil {
+                     ZStack {
+                         Circle().fill(Color.gray)
+                         Text(fixture.opponentShortName).font(.caption2)
+                     }
+                } else {
+                    ProgressView()
+                }
+            }
+            .frame(width: 80, height: 80)
+
+            Text(fixture.opponentShortName)
+                .font(.title)
+                .bold()
+
+            Text(fixture.isHome ? "Home" : "Away")
+                .font(.headline)
+
+            if let date = fixture.date {
+                Text(date, style: .date)
+                Text(date, style: .time)
+            }
+
+            Text("Difficulty: \(fixture.difficulty)")
+                .padding()
+                .background(Theme.color(for: fixture.difficulty))
+                .cornerRadius(8)
+        }
+        .padding()
+        .presentationDetents([.medium, .fraction(0.4)])
     }
 }
