@@ -1,6 +1,12 @@
 import SwiftUI
 import Combine
 
+enum SortOption: Int, Codable {
+    case id = 0
+    case easiest = 1
+    case hardest = 2
+}
+
 class FPLManager: ObservableObject {
     @Published var teams: [Team] = []
     @Published var events: [Event] = []
@@ -8,26 +14,36 @@ class FPLManager: ObservableObject {
 
     // User Preferences
     @Published var startGameweek: Int = 1 {
-        didSet { savePreferences() }
+        didSet {
+            savePreferences()
+            recomputeFDR()
+        }
     }
     @Published var endGameweek: Int = 38 {
-        didSet { savePreferences() }
+        didSet {
+            savePreferences()
+            recomputeFDR()
+        }
     }
-    @Published var sortByEase: Bool = false {
+    @Published var sortOption: SortOption = .id {
         didSet { savePreferences() }
     }
 
     // Team Strengths: [TeamID: [Home: Int, Away: Int]]
     @Published var teamStrengths: [Int: [String: Int]] = [:] {
-        didSet { savePreferences() }
+        didSet {
+            savePreferences()
+            recomputeFDR()
+        }
     }
 
-    // Visibility: [TeamID: IsHidden] (Inverse logic, or IsVisible)
-    // Prompt says "Show/Hide" and "dimming effect for hidden teams".
-    // I'll store `hiddenTeams: Set<Int>`
+    // Visibility: [TeamID: IsHidden]
     @Published var hiddenTeams: Set<Int> = [] {
         didSet { savePreferences() }
     }
+
+    // Cached FDR Data
+    @Published var processedFDR: [Int: Double] = [:]
 
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -77,6 +93,8 @@ class FPLManager: ObservableObject {
                 }
             }
 
+            recomputeFDR()
+
         } catch {
             self.errorMessage = error.localizedDescription
         }
@@ -95,38 +113,49 @@ class FPLManager: ObservableObject {
     // MARK: - Logic
 
     func getSortedTeams() -> [Team] {
-        // We only sort visible teams? Or all teams but hidden ones are dimmed?
-        // "Display a highly visual, tappable grid of team logos to easily toggle teams (Show/Hide) with a dimming effect for hidden teams."
-        // This implies the main grid might hide them, or show them dimmed.
-        // Usually, hidden teams are removed from the main view.
-        // I will return all teams, but sorted. The View will handle dimming/hiding.
-        // Actually, "Toggle teams (Show/Hide)" usually means remove from list.
-        // Let's filter out hidden teams for the main grid.
         let visible = teams.filter { !hiddenTeams.contains($0.id) }
 
-        if sortByEase {
-            return visible.sorted {
-                calculateAverageFDR(for: $0.id) < calculateAverageFDR(for: $1.id)
-            }
-        } else {
+        switch sortOption {
+        case .id:
             return visible.sorted { $0.id < $1.id }
+        case .easiest:
+            return visible.sorted {
+                (processedFDR[$0.id] ?? 0) < (processedFDR[$1.id] ?? 0)
+            }
+        case .hardest:
+            return visible.sorted {
+                (processedFDR[$0.id] ?? 0) > (processedFDR[$1.id] ?? 0)
+            }
         }
     }
 
     func calculateAverageFDR(for teamId: Int) -> Double {
-        var total = 0
-        var count = 0
+        return processedFDR[teamId] ?? 0.0
+    }
 
-        for gw in startGameweek...endGameweek {
-            let fixtures = getFixtures(for: teamId, gameweek: gw)
-            for f in fixtures {
-                total += f.difficulty
-                count += 1
+    private func recomputeFDR() {
+        var newFDR: [Int: Double] = [:]
+        for team in teams {
+            var total = 0
+            var count = 0
+
+            for gw in startGameweek...endGameweek {
+                let fixtures = getFixtures(for: team.id, gameweek: gw)
+                for f in fixtures {
+                    total += f.difficulty
+                    count += 1
+                }
+            }
+
+            if count > 0 {
+                newFDR[team.id] = Double(total) / Double(count)
+            } else {
+                newFDR[team.id] = 0.0
             }
         }
-
-        guard count > 0 else { return 0.0 }
-        return Double(total) / Double(count)
+        DispatchQueue.main.async {
+            self.processedFDR = newFDR
+        }
     }
 
     func getFixtures(for teamId: Int, gameweek: Int) -> [FixtureDisplay] {
@@ -167,6 +196,7 @@ class FPLManager: ObservableObject {
             teamStrengths[teamId] = ["home": 3, "away": 3]
         }
         teamStrengths[teamId]?[location] = value
+        recomputeFDR()
     }
 
     func toggleVisibility(teamId: Int) {
@@ -183,7 +213,7 @@ class FPLManager: ObservableObject {
     private let kHidden = "FPL_HiddenTeams"
     private let kStartGW = "FPL_StartGW"
     private let kEndGW = "FPL_EndGW"
-    private let kSort = "FPL_Sort"
+    private let kSort = "FPL_SortOption"
 
     private func savePreferences() {
         if let data = try? JSONEncoder().encode(teamStrengths) {
@@ -194,7 +224,9 @@ class FPLManager: ObservableObject {
         }
         UserDefaults.standard.set(startGameweek, forKey: kStartGW)
         UserDefaults.standard.set(endGameweek, forKey: kEndGW)
-        UserDefaults.standard.set(sortByEase, forKey: kSort)
+        if let data = try? JSONEncoder().encode(sortOption) {
+             UserDefaults.standard.set(data, forKey: kSort)
+        }
     }
 
     private func loadPreferences() {
@@ -214,8 +246,9 @@ class FPLManager: ObservableObject {
         let end = UserDefaults.standard.integer(forKey: kEndGW)
         if end > 0 { endGameweek = end }
 
-        if UserDefaults.standard.object(forKey: kSort) != nil {
-            sortByEase = UserDefaults.standard.bool(forKey: kSort)
+        if let data = UserDefaults.standard.data(forKey: kSort),
+           let decoded = try? JSONDecoder().decode(SortOption.self, from: data) {
+            sortOption = decoded
         }
     }
 }

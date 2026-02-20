@@ -6,7 +6,7 @@ struct TeamLeftCellView: View {
 
     var body: some View {
         HStack {
-            TeamLogoView(teamShortName: team.short_name)
+            TeamLogoView(teamCode: team.code, teamShortName: team.short_name)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(team.short_name)

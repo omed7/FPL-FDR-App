@@ -55,7 +55,7 @@ struct MainGridView: View {
         ScrollView(.vertical, showsIndicators: false) {
             HStack(alignment: .top, spacing: 0) {
                 // Sticky Left Column
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     // Header
                     Text("Team")
                         .font(.caption.bold())
@@ -72,13 +72,13 @@ struct MainGridView: View {
                             .border(Color.white.opacity(0.1))
                     }
                 }
-                .zIndex(1) // Keep on top if overlap
+                .zIndex(1)
 
                 // Scrollable Right Grid
                 ScrollView(.horizontal, showsIndicators: true) {
-                    VStack(alignment: .leading, spacing: 0) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
                         // Header Row
-                        HStack(spacing: 0) {
+                        LazyHStack(spacing: 0) {
                             ForEach(gameweeks, id: \.self) { gw in
                                 Text("GW\(gw)")
                                     .font(.caption.bold())
@@ -91,7 +91,7 @@ struct MainGridView: View {
                         // Data Rows
                         ForEach(teams) { team in
                             let height = rowHeight(for: team, gameweeks: gameweeks)
-                            HStack(spacing: 0) {
+                            LazyHStack(spacing: 0) {
                                 ForEach(gameweeks, id: \.self) { gw in
                                     let fixtures = manager.getFixtures(for: team.id, gameweek: gw)
                                     Group {
@@ -118,6 +118,7 @@ struct MainGridView: View {
     }
 
     func rowHeight(for team: Team, gameweeks: [Int]) -> CGFloat {
+        // Calculate the maximum number of fixtures any team has in a single gameweek to determine row height
         var maxFixtures = 1
         for gw in gameweeks {
             let count = manager.getFixtures(for: team.id, gameweek: gw).count
