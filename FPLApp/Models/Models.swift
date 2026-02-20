@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - API Responses
+// MARK: - API Response Models
 
 struct BootstrapStaticResponse: Codable {
     let teams: [Team]
@@ -30,4 +30,17 @@ struct Fixture: Codable, Identifiable {
     let team_a: Int
     let finished: Bool
     let kickoff_time: String?
+    let difficulty: Int? // API provided difficulty, we might ignore this for our custom system
+}
+
+// MARK: - App Logic Models
+
+struct FixtureDisplay: Identifiable {
+    let id = UUID()
+    let fixtureId: Int
+    let opponentId: Int
+    let opponentShortName: String
+    let difficulty: Int
+    let isHome: Bool
+    let date: Date?
 }
