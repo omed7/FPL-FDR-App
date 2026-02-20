@@ -118,6 +118,7 @@ struct MainGridView: View {
     }
 
     func rowHeight(for team: Team, gameweeks: [Int]) -> CGFloat {
+        // Calculate the maximum number of fixtures any team has in a single gameweek to determine row height
         var maxFixtures = 1
         for gw in gameweeks {
             let count = manager.getFixtures(for: team.id, gameweek: gw).count
