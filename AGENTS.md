@@ -1,0 +1,1 @@
+This is a native iOS SwiftUI project. Do not generate a complex .xcodeproj or use third-party package managers. Keep all views broken down into small, isolated sub-views to prevent compiler timeouts during compilation.
