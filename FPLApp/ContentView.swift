@@ -109,6 +109,17 @@ struct FixtureDetailView: View {
                 .cornerRadius(8)
         }
         .padding()
-        .presentationDetents([.medium, .fraction(0.4)])
+        .ifAvailablePresentationDetents()
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func ifAvailablePresentationDetents() -> some View {
+        if #available(iOS 16.0, *) {
+            self.presentationDetents([.medium, .fraction(0.4)])
+        } else {
+            self
+        }
     }
 }
