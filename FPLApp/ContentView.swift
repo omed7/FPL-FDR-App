@@ -76,7 +76,7 @@ struct MainGridView: View {
 
                 // Scrollable Right Grid
                 ScrollView(.horizontal, showsIndicators: true) {
-                    LazyVStack(spacing: 0, alignment: .leading) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
                         // Header Row
                         LazyHStack(spacing: 0) {
                             ForEach(gameweeks, id: \.self) { gw in
